@@ -27,8 +27,11 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 type ExchangeRateAPIResponse struct {
@@ -60,6 +63,10 @@ var convertCmd = &cobra.Command{
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 		}
+		// Convert all to uppercase to safely access the conversion map
+		fromCurrency = strings.ToUpper(fromCurrency)
+		toCurrency = strings.ToUpper(toCurrency)
+
 		// MAYBE Need to validate error when accessing with index, however cobra.ExactArgs also ensure that the args will has at least 1
 		amountString := args[0]
 		amount, err := strconv.ParseFloat(amountString, 64)
@@ -116,5 +123,7 @@ func convertAction(conversionRates map[string]float64, fromCurrency string, toCu
 }
 
 func printConverResult(w io.Writer, amount float64, fromCurrency string, toCurrency string, result float64) (int, error) {
-	return fmt.Fprintf(w, "From: %2.f %s to %s\nResult:  %.2f %s\n", amount, fromCurrency, toCurrency, result, toCurrency)
+	p := message.NewPrinter(language.English)
+	withCommaThousandSep := p.Sprintf("%2.f", result)
+	return fmt.Fprintf(w, "From: %2.f %s to %s\nResult:  %s %s\n", amount, fromCurrency, toCurrency, withCommaThousandSep, toCurrency)
 }

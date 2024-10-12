@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 )
@@ -51,5 +52,24 @@ func TestConvertAction(t *testing.T) {
 				t.Errorf("Expect %f got %f", tc.expRes, result)
 			}
 		})
+	}
+}
+
+func TestPrintCoverResult(t *testing.T) {
+	conversionRates := getMockExchangeRateApi().ConversionRates
+	var out bytes.Buffer
+	result, err := convertAction(conversionRates, "USD", "VND", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = printConverResult(&out, 100, "USD", "VND", result)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	exp := "From: 100 USD to VND\nResult:  2,482,230 VND\n"
+	if exp != out.String() {
+		t.Errorf("Expect: %s, got %s\n", exp, out.String())
 	}
 }
