@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -29,6 +30,9 @@ import (
 	"github.com/spf13/viper"
 )
 
+var (
+	ErrCurrencyNotFound error = errors.New("currency not found")
+)
 var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
