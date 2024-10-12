@@ -9,6 +9,7 @@ func getMockExchangeRateApi() ExchangeRateAPIResponse {
 	mockProvider := map[string]float64{
 		"USD": 1.0,
 		"VND": 24822.3006,
+		"EUR": 0.9142,
 	}
 	return ExchangeRateAPIResponse{
 		ConversionRates: mockProvider,
@@ -17,18 +18,22 @@ func getMockExchangeRateApi() ExchangeRateAPIResponse {
 
 func TestConvertAction(t *testing.T) {
 	testCases := []struct {
-		name       string
-		expErr     error
-		expRes     float64
-		amount     float64
-		toCurrency string
+		name         string
+		expErr       error
+		expRes       float64
+		amount       float64
+		toCurrency   string
+		fromCurrency string
 	}{
-		{name: "Valid USD to VND", amount: 100, toCurrency: "VND", expErr: nil, expRes: 2482230.060000},
-		{name: "Invalid currency", toCurrency: "foo", expErr: ErrCurrencyNotFound},
+		{name: "USD to VND", amount: 100, fromCurrency: "USD", toCurrency: "VND", expErr: nil, expRes: 2482230.060000},
+		{name: "EUR to VND", amount: 100, fromCurrency: "EUR", toCurrency: "VND", expErr: nil, expRes: 2715193.677532},
+		{name: "Invalid currency", fromCurrency: "bar", toCurrency: "foo", expErr: ErrCurrencyNotFound},
+		{name: "Invalid currency 2", fromCurrency: "bar", toCurrency: "VND", expErr: ErrCurrencyNotFound},
 	}
+	conversionRates := getMockExchangeRateApi().ConversionRates
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := convertAction(getMockExchangeRateApi(), tc.amount, tc.toCurrency)
+			result, err := convertAction(conversionRates, tc.fromCurrency, tc.toCurrency, tc.amount)
 			if tc.expErr != nil {
 				if err == nil {
 					t.Error("Expect to have error, got nil")
@@ -42,7 +47,7 @@ func TestConvertAction(t *testing.T) {
 				t.Errorf("Expect no error, got %v", err)
 			}
 
-			if result != tc.expRes {
+			if int(result) != int(tc.expRes) {
 				t.Errorf("Expect %f got %f", tc.expRes, result)
 			}
 		})

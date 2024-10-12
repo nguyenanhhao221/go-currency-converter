@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	"github.com/spf13/cobra"
 )
@@ -44,11 +45,29 @@ type ExchangeRateAPIResponse struct {
 
 // convertCmd represents the convert command
 var convertCmd = &cobra.Command{
-	Use:     "convert",
+	Use:     "convert [amount]",
 	Short:   "Convert currency from one unit to another",
 	Long:    `Convert a specified amount from one currency to another using exchange rates.`,
+	Args:    cobra.ExactArgs(1),
 	Aliases: []string{"c"},
 	Run: func(cmd *cobra.Command, args []string) {
+		fromCurrency, err := cmd.Flags().GetString("form")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+		}
+
+		toCurrency, err := cmd.Flags().GetString("to")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+		}
+		// MAYBE Need to validate error when accessing with index, however cobra.ExactArgs also ensure that the args will has at least 1
+		amountString := args[0]
+		amount, err := strconv.ParseFloat(amountString, 64)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+
 		f, err := os.Open("./testdata/mockResponse.json")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error opening convert json file %v", err)
@@ -63,13 +82,13 @@ var convertCmd = &cobra.Command{
 			return
 		}
 
-		result, err := convertAction(exChangeRateApi, 100, "VND")
+		result, err := convertAction(exChangeRateApi.ConversionRates, fromCurrency, toCurrency, amount)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return
 		}
 
-		if _, err := printConverResult(os.Stdout, "USD", "VND", result); err != nil {
+		if _, err := printConverResult(os.Stdout, amount, "USD", toCurrency, result); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
 	},
@@ -77,16 +96,25 @@ var convertCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(convertCmd)
+	convertCmd.Flags().StringP("form", "f", "USD", "From currency")
+	convertCmd.Flags().StringP("to", "t", "VND", "To currency")
 }
 
-func convertAction(exChangeRateApi ExchangeRateAPIResponse, amount float64, toCurrency string) (float64, error) {
-	exChangeRate, ok := exChangeRateApi.ConversionRates[toCurrency]
-	if !ok {
+func convertAction(conversionRates map[string]float64, fromCurrency string, toCurrency string, amount float64) (float64, error) {
+	// Get the exchange rates
+	fromRate, fromOk := conversionRates[fromCurrency]
+	toRate, toOk := conversionRates[toCurrency]
+	if !fromOk || !toOk {
+		fmt.Printf("Currency code not found. From: %v, To: %v\n", fromOk, toOk)
 		return 0.0, ErrCurrencyNotFound
 	}
-	return exChangeRate * amount, nil
+
+	// Perform the conversion
+	amountInUSD := amount / fromRate
+	convertedAmount := amountInUSD * toRate
+	return convertedAmount, nil
 }
 
-func printConverResult(w io.Writer, fromCurrency string, toCurrency string, result float64) (int, error) {
-	return fmt.Fprintf(w, "From: %s to %s\nResult:  %.2f\n", fromCurrency, toCurrency, result)
+func printConverResult(w io.Writer, amount float64, fromCurrency string, toCurrency string, result float64) (int, error) {
+	return fmt.Fprintf(w, "From: %2.f %s to %s\nResult:  %.2f %s\n", amount, fromCurrency, toCurrency, result, toCurrency)
 }
